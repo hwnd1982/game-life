@@ -1,6 +1,6 @@
 import 'normalize.css'
 import './index.sass';
-import { AppElement } from './modules/Elements/AppElement';
+import { AppElement } from './Elements/AppElement';
 
 class App extends AppElement {
   constructor() {
