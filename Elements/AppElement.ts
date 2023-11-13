@@ -43,6 +43,6 @@ export class AppElement {
       cb(element);
     }
 
-    return element;
+    return element as HTMLElement;
   }
 }

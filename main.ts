@@ -1,25 +1,16 @@
 import 'normalize.css'
 import './index.sass';
 import { AppElement } from './Elements/AppElement';
-import { Game } from './Modules/Game';
+import { GameController } from './Controllers/GameController';
 
 class App extends AppElement {
   constructor() {
     super('div', { className: 'app' }, {
       parent: document.body
     });
+
+    new GameController(300, 150, this).fill(25).start();
   }
 }
 
-new App();
-
-const game = new Game(5, 5);
-
-game.setAlive(1, 1);
-game.setAlive(2, 2);
-game.setAlive(3, 3);
-
-console.log(game.step().map(row => [...row]));
-console.log(game.step().map(row => [...row]));
-console.log(game.step().map(row => [...row]));
-console.log(game.step().map(row => [...row]));
+const app = new App();

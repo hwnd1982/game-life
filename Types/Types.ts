@@ -1,1 +1,1 @@
-
+export type Scene = number[][]
