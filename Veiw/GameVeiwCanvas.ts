@@ -11,7 +11,7 @@ export class GameVeiwCanvas extends AppElement {
   setSize: () => void
 
   constructor(scene: Scene, parent: AppElement, setPoint: (y: number, x: number, state: number) => void) {
-    const sizeY = window.innerHeight / scene.length;
+    const sizeY = (window.innerHeight - 40) / scene.length;
     const sizeX = (window.innerWidth - 250) / scene[0].length;
 
     super('canvas', { className: 'canvas' }, { parent });
@@ -25,7 +25,7 @@ export class GameVeiwCanvas extends AppElement {
 
       this.setSize = () => {
         if (this instanceof HTMLCanvasElement) {
-          const sizeY = window.innerHeight / scene.length;
+          const sizeY = (window.innerHeight - 40) / scene.length;
           const sizeX = (window.innerWidth - 250) / scene[0].length;
 
           this.size = Math.min(sizeY, sizeX);
@@ -35,15 +35,18 @@ export class GameVeiwCanvas extends AppElement {
         }
       }
 
-      this.draw = ({ type, target, buttons, clientY, clientX }) => {
-        if (type === 'mousemove' && !buttons) return;
+      this.draw = ({ type, target, buttons, button, clientY, clientX }) => {
+        if ((!button && type === 'mouseup') || (type === 'mousemove' && !buttons)) return;
 
         const y = Math.round((clientY - (target as HTMLElement).offsetTop) / this.size);
         const x = Math.round((clientX - (target as HTMLElement).offsetLeft) / this.size);
 
-        if (buttons || type !== 'mousemove') {
+        if (type == 'mousemove' && buttons) {
           setPoint(y, x, buttons === 2 ? 0 : 1);
+          return;
         }
+
+        setPoint(y, x, button === 2 ? 0 : 1);
       }
 
       this.change = (y: number, x: number, state: number) => {
@@ -67,7 +70,7 @@ export class GameVeiwCanvas extends AppElement {
 
       this.resize = () => {
         if (this instanceof HTMLCanvasElement) {
-          const sizeY = window.innerHeight / scene.length;
+          const sizeY = (window.innerHeight - 40) / scene.length;
           const sizeX = (window.innerWidth - 250) / scene[0].length;
 
           this.size = Math.min(sizeY, sizeX);
@@ -77,9 +80,9 @@ export class GameVeiwCanvas extends AppElement {
         }
         this.render();
       }
-
+      this.addEventListener('mouseup', this.draw.bind(this));
       this.addEventListener('mousemove', this.draw.bind(this));
-      this.addEventListener('click', this.draw.bind(this));
+      this.addEventListener('mousedown', this.draw.bind(this));
       window.addEventListener('resize', this.resize.bind(this));
     }
   }

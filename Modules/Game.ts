@@ -2,7 +2,7 @@ import { EventEmiter } from "../services/EventEmiter"
 import { Scene } from "../Types/types"
 
 export class Game extends EventEmiter {
-  #state: 'play' | 'end' = 'end'
+  #state: 'play' | 'pause' | 'stop' = 'stop'
   #gen: number = 0
   #width: number
   #height: number
@@ -67,8 +67,13 @@ export class Game extends EventEmiter {
   setPoint(y: number, x: number, state: number) {
     if (this.#state === 'play' || y >= this.#height || x >= this.#width) return;
 
-    this.#scene[y][x] = state ? 1 : 0;
-    this.#currentGenAlive.push([y, x]);
+    this.#scene[y][x] = state ? this.#gen + 1 : 0;
+    if (state) {
+      this.#currentGenAlive.push([y, x]);
+    } else {
+      const index = this.#currentGenAlive.findIndex(point => x === point[1] && y === point[0]);
+      this.#currentGenAlive.slice(index, 1);
+    }
     this.emit('change', y, x, state)
   }
 
@@ -81,7 +86,7 @@ export class Game extends EventEmiter {
     this.#isCalculating = true;
     this.#changedCells.length = 0;
 
-    if (this.#state === 'end') {
+    if (this.#state === 'stop' || this.#state === 'pause') {
       this.#state = 'play';
       this.emit('play');
     }
@@ -90,65 +95,105 @@ export class Game extends EventEmiter {
       const [y, x] = this.#currentGenAlive[i];
 
       await this.toBeAlive(y, x);
+
+      if (i && this.#currentGenAlive.length > 7500 && !(i % 1500)) {
+        await new Promise((resolve) => {
+          this.emit('progress', i / this.#currentGenAlive.length, Date.now() - start);
+
+          setTimeout(resolve);
+        });
+      }
     }
 
     if (!this.#checkedCells.length || !this.#changedCells.length) {
-      this.#state = 'end';
-      this.emit('end');
+      this.emit('stop');
     }
 
+    this.emit('gen', this.#gen, this.#nextGenAlive.length, Date.now() - start);
     this.reset();
-    console.log('gen', Date.now() - start);
     this.#isCalculating = false;
+  }
+
+  stop() {
+    this.#state = 'stop';
+
+    for (let i = 0; i < this.#currentGenAlive.length; i++) {
+      const [y, x] = this.#currentGenAlive[i];
+      this.setPoint(y, x, 0);
+    }
+
+    for (let i = 0; i < this.#nextGenAlive.length; i++) {
+      const [y, x] = this.#nextGenAlive[i];
+
+      this.setPoint(y, x, 0);
+    }
+
+    this.#changedCells.length = 0;
+    this.#checkedCells.length = 0;
+    this.#currentGenAlive.length = 0;
+    this.#nextGenAlive.length = 0;
+    this.#gen = 0;
   }
 
   async toBeAlive(y: number, x: number) {
     if (this.#checkedCells.includes(`${y}/${x}`)) return;
 
-    this.#checkedCells.push(`${y}/${x}`);
+    return new Promise(async (resolve: (res: [number, number, number] | null) => void) => {
 
-    const state = this.#scene[y][x];
+      this.#checkedCells.push(`${y}/${x}`);
 
-    const t = (y - 1 + this.#height) % this.#height;
-    const l = (x - 1 + this.#width) % this.#width;
-    const r = (x + 1 + this.#width) % this.#width;
-    const b = (y + 1 + this.#height) % this.#height;
+      const state = this.#scene[y][x];
 
-    const aliveNearby =
-      +(this.#gen === this.#scene[t][l]) +
-      +(this.#gen === this.#scene[t][x]) +
-      +(this.#gen === this.#scene[t][r]) +
-      +(this.#gen === this.#scene[y][l]) +
-      +(this.#gen === this.#scene[y][r]) +
-      +(this.#gen === this.#scene[b][l]) +
-      +(this.#gen === this.#scene[b][x]) +
-      +(this.#gen === this.#scene[b][r]);
+      const t = (y - 1 + this.#height) % this.#height;
+      const l = (x - 1 + this.#width) % this.#width;
+      const r = (x + 1 + this.#width) % this.#width;
+      const b = (y + 1 + this.#height) % this.#height;
 
-    const stayAlive = state && aliveNearby > 1 && aliveNearby < 4;
-    const newLive = !state && aliveNearby === 3;
-    const isAlive = stayAlive || newLive;
+      const aliveNearby =
+        +(this.#gen === this.#scene[t][l]) +
+        +(this.#gen === this.#scene[t][x]) +
+        +(this.#gen === this.#scene[t][r]) +
+        +(this.#gen === this.#scene[y][l]) +
+        +(this.#gen === this.#scene[y][r]) +
+        +(this.#gen === this.#scene[b][l]) +
+        +(this.#gen === this.#scene[b][x]) +
+        +(this.#gen === this.#scene[b][r]);
 
-    if (state) {
-      await this.toBeAlive(t, l);
-      await this.toBeAlive(t, x);
-      await this.toBeAlive(t, r);
-      await this.toBeAlive(y, l);
-      await this.toBeAlive(y, r);
-      await this.toBeAlive(b, l);
-      await this.toBeAlive(b, x);
-      await this.toBeAlive(b, r);
-    }
+      const stayAlive = state && aliveNearby > 1 && aliveNearby < 4;
+      const newLive = !state && aliveNearby === 3;
+      const isAlive = stayAlive || newLive;
 
-    if (isAlive) {
-      this.#nextGenAlive.push([y, x]);
-      this.#scene[y][x] = this.#gen + 1;
-    }
+      if (state) {
+        await this.toBeAlive(t, l);
+        await this.toBeAlive(t, x);
+        await this.toBeAlive(t, r);
+        await this.toBeAlive(y, l);
+        await this.toBeAlive(y, r);
+        await this.toBeAlive(b, l);
+        await this.toBeAlive(b, x);
+      }
 
-    if (!state === isAlive) {
-      this.#changedCells.push([y, x, +isAlive]);
-      this.#scene[y][x] = isAlive ? this.#gen + 1 : 0;
-      this.emit('change', y, x, +isAlive);
-    }
+      if (isAlive) {
+        this.#nextGenAlive.push([y, x]);
+        this.#scene[y][x] = this.#gen + 1;
+      }
+
+      if (!state === isAlive) {
+        this.#changedCells.push([y, x, +isAlive]);
+        this.#scene[y][x] = isAlive ? this.#gen + 1 : 0;
+        resolve([y, x, +isAlive]);
+      }
+
+      resolve(null);
+    }).then(res => {
+      if (!res) return;
+
+      this.emit('change', ...res);
+    });
+  }
+
+  pause() {
+    this.#state = 'pause';
   }
 
   reset() {
@@ -158,7 +203,7 @@ export class Game extends EventEmiter {
   }
 
   fill(density: number = 5) {
-    if (this.#isCalculating) return;
+    if (this.#isCalculating || this.#state === 'play') return;
 
     this.#isCalculating = true;
 
@@ -175,14 +220,14 @@ export class Game extends EventEmiter {
         if (!cells.includes(id)) {
           this.emit('change', y, x, 1);
           this.#currentGenAlive.push([y, x]);
-          this.#scene[y][x] = 1;
+          this.#scene[y][x] = this.#gen + 1;
 
           cells.push(id);
         }
       }
 
       this.#isCalculating = false;
-      this.emit('fill', Date.now() - start, cells.length);
+      this.emit('fill', this.#currentGenAlive.length / (this.#width * this.#height) * 100, this.#currentGenAlive.length, Date.now() - start, cells.length);
 
       resolve(null);
     })

@@ -9,9 +9,9 @@ export abstract class EventEmiter {
     return this;
   }
 
-  emit(event: string, ...args: any) {
+  async emit(event: string, ...args: any) {
     if (event in this.#events) {
-      this.#events[event](event, ...args);
+      await this.#events[event](event, ...args);
     }
   }
 
