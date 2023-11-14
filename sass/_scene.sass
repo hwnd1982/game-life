@@ -1,5 +1,6 @@
-.scene
+.scene, .canvas
   border: none
+  // box-shadow: 5px 5px 20px 5px #0005
 
 .cell
   width: 2px
@@ -7,6 +8,18 @@
   border-radius: 50%
   border: .5px solid #c7c7c7
   background-color: #fff0
-  // transition: .5s
   &.alive
     background-color: green
+
+.controls
+  // padding: 20px
+  display: flex
+  flex-direction: column
+  height: 100%
+  width: 100%
+  justify-content: start
+  &>:not(:last-child)
+    margin-bottom: 20px
+
+.button
+  display: block

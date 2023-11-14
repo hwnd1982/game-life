@@ -3,6 +3,7 @@ import { Scene } from "../Types/types"
 
 export class Game extends EventEmiter {
   #state: 'play' | 'end' = 'end'
+  #gen: number = 0
   #width: number
   #height: number
   #scene: Scene
@@ -63,11 +64,20 @@ export class Game extends EventEmiter {
     return this.#changedCells;
   }
 
-  step() {
+  setPoint(y: number, x: number, state: number) {
+    if (this.#state === 'play' || y >= this.#height || x >= this.#width) return;
+
+    this.#scene[y][x] = state ? 1 : 0;
+    this.#currentGenAlive.push([y, x]);
+    this.emit('change', y, x, state)
+  }
+
+  async step() {
     if (this.#isCalculating) return;
 
     const start = Date.now();
 
+    this.#gen++;
     this.#isCalculating = true;
     this.#changedCells.length = 0;
 
@@ -78,16 +88,9 @@ export class Game extends EventEmiter {
 
     for (let i = 0; i < this.#currentGenAlive.length; i++) {
       const [y, x] = this.#currentGenAlive[i];
-      const cell = this.#scene[y][x];
-      const id = `${y}/${x}`;
 
-      if (cell && !this.#checkedCells.includes(id)) {
-        this.#checkedCells.push(id);
-        this.toBeAlive(y, x, cell);
-      }
+      await this.toBeAlive(y, x);
     }
-
-    this.render();
 
     if (!this.#checkedCells.length || !this.#changedCells.length) {
       this.#state = 'end';
@@ -99,44 +102,52 @@ export class Game extends EventEmiter {
     this.#isCalculating = false;
   }
 
-  toBeAlive(y: number, x: number, state: number) {
-    let aliveNearby = 0, newState = 0;
+  async toBeAlive(y: number, x: number) {
+    if (this.#checkedCells.includes(`${y}/${x}`)) return;
 
-    for (let i = y - 1; i <= y + 1; i++) {
-      for (let j = x - 1; j <= x + 1; j++) {
-        if (i !== y || j !== x) {
-          const ny = (i + this.#height) % this.#height;
-          const nx = (j + this.#width) % this.#width;
-          const id = `${ny}/${nx}`;
+    this.#checkedCells.push(`${y}/${x}`);
 
-          if (state && !this.#checkedCells.includes(id)) {
-            this.#checkedCells.push(id);
-            this.toBeAlive(ny, nx, this.#scene[ny][nx]);
-          }
+    const state = this.#scene[y][x];
 
-          aliveNearby += this.#scene[ny][nx];
-        }
-      }
+    const t = (y - 1 + this.#height) % this.#height;
+    const l = (x - 1 + this.#width) % this.#width;
+    const r = (x + 1 + this.#width) % this.#width;
+    const b = (y + 1 + this.#height) % this.#height;
+
+    const aliveNearby =
+      +(this.#gen === this.#scene[t][l]) +
+      +(this.#gen === this.#scene[t][x]) +
+      +(this.#gen === this.#scene[t][r]) +
+      +(this.#gen === this.#scene[y][l]) +
+      +(this.#gen === this.#scene[y][r]) +
+      +(this.#gen === this.#scene[b][l]) +
+      +(this.#gen === this.#scene[b][x]) +
+      +(this.#gen === this.#scene[b][r]);
+
+    const stayAlive = state && aliveNearby > 1 && aliveNearby < 4;
+    const newLive = !state && aliveNearby === 3;
+    const isAlive = stayAlive || newLive;
+
+    if (state) {
+      await this.toBeAlive(t, l);
+      await this.toBeAlive(t, x);
+      await this.toBeAlive(t, r);
+      await this.toBeAlive(y, l);
+      await this.toBeAlive(y, r);
+      await this.toBeAlive(b, l);
+      await this.toBeAlive(b, x);
+      await this.toBeAlive(b, r);
     }
 
-    if (
-      (state && aliveNearby > 1 && aliveNearby < 4) ||
-      (!state && aliveNearby === 3)
-    ) {
-      newState = 1;
+    if (isAlive) {
       this.#nextGenAlive.push([y, x]);
+      this.#scene[y][x] = this.#gen + 1;
     }
 
-    if (this.#scene[y][x] !== newState) {
-      this.#changedCells.push([y, x, newState]);
-      this.emit('change', y, x, newState);
-    }
-  }
-
-  render() {
-    for (let i = 0; i < this.#changedCells.length; i++) {
-      const [y, x, state] = this.#changedCells[i];
-      this.#scene[y][x] = state;
+    if (!state === isAlive) {
+      this.#changedCells.push([y, x, +isAlive]);
+      this.#scene[y][x] = isAlive ? this.#gen + 1 : 0;
+      this.emit('change', y, x, +isAlive);
     }
   }
 
@@ -147,25 +158,35 @@ export class Game extends EventEmiter {
   }
 
   fill(density: number = 5) {
-    const start = Date.now();
-    const count = Math.round(this.#width * this.#height / 100 * density);
-    const cells: string[] = [];
+    if (this.#isCalculating) return;
 
-    while (cells.length < count || cells.length < 5) {
-      const x = Math.round(Math.random() * (this.#width - 1));
-      const y = Math.round(Math.random() * (this.#height - 1));
-      const id = `${y}/${x}`
+    this.#isCalculating = true;
 
-      if (!cells.includes(id)) {
-        this.emit('change', y, x, 1);
-        this.#currentGenAlive.push([y, x]);
-        this.#scene[y][x] = 1;
+    new Promise((resolve) => {
+      const start = Date.now();
+      const count = Math.round(this.#width * this.#height / 100 * density);
+      const cells: string[] = [];
 
-        cells.push(id);
+      while (cells.length < count || cells.length < 5) {
+        const x = Math.round(Math.random() * (this.#width - 1));
+        const y = Math.round(Math.random() * (this.#height - 1));
+        const id = `${y}/${x}`
+
+        if (!cells.includes(id)) {
+          this.emit('change', y, x, 1);
+          this.#currentGenAlive.push([y, x]);
+          this.#scene[y][x] = 1;
+
+          cells.push(id);
+        }
       }
-    }
 
-    console.log('fill', Date.now() - start);
+      this.#isCalculating = false;
+      this.emit('fill', Date.now() - start, cells.length);
+
+      resolve(null);
+    })
+
     return this
   }
 }
