@@ -1,4 +1,4 @@
-import { EventEmiter } from "../services/EventEmiter"
+import { EventEmiter } from "../Services/EventEmiter"
 import { Scene } from "../Types/types"
 
 export class Game extends EventEmiter {
