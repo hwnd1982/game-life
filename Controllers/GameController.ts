@@ -1,6 +1,6 @@
 import { AppElement } from "../Elements/AppElement";
 import { Game } from "../Modules/Game";
-import { EventEmiter } from "../services/EventEmiter";
+import { EventEmiter } from "../Services/EventEmiter";
 import { GameVeiwCanvas } from "../Veiw/GameVeiwCanvas";
 
 export class GameController extends EventEmiter {
