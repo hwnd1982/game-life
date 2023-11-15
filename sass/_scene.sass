@@ -58,22 +58,44 @@
   display: none
 
 .progress
+  position: relative
+  margin: 0
   width: 100%
   max-width: 360px
-  padding: 10px
-  background-color: #fff
+  padding: 10px 10px 20px
   box-shadow: 0px 2px 10px rgba(28, 24, 25, 0.1)
   border-radius: 8px
 
+  &-text
+    display: flex
+    padding-left: 20px
+    justify-content: space-between
+    font-size: 12px
+    max-width: 25ch
+    &>:last-child
+      text-align: right
+      flex-grow: 1
+      white-space: nowrap
+    &>:not(:last-child)
+      margin-right: 1ch
   &-line
+    position: absolute
+    bottom: 0
+    left: 0
+    height: 10px
     width: 100%
-    min-height: 6px
-    background: #fafafa
-    border-radius: 8px
+    border-radius: 5px
     transition: .3s
+    z-index: -1
 
   &-bg
+    position: absolute
+    top: 50%
+    left: 50%
+    height: 100%
+    width: 100%
     min-height: 6px
-    border-radius: 8px
+    border-radius: 20px
     background: linear-gradient(90deg, #06EC0F 0%, #6FE336 52.488px, #4ED3AC 125.64px, #00CDFA 179.244px, #497AF9 261.756px, #5162FC 342.684px, #4957D5 360px)
-    transform: rotate(-180deg)
+    transform: translate(-50%, -50%) rotate(-180deg)
+    z-index: -1

@@ -66,7 +66,6 @@ export class GameController extends EventEmiter {
   fill(value: number) {
     this.#game.fill(value);
 
-
     return this
   }
 

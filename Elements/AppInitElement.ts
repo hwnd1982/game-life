@@ -5,7 +5,7 @@ export class AppInitElement extends AppElement {
   controller: GameController
 
   constructor(parent: AppElement) {
-    const controller = new GameController(300, 300, parent);
+    const controller = new GameController(100, 100, parent);
     const genEl = new AppElement('span', { className: 'text' });
     const popEl = new AppElement('span', { className: 'text' });
     const timeEl = new AppElement('span', { className: 'text' });
@@ -42,16 +42,30 @@ export class AppInitElement extends AppElement {
       },
     });
 
-    const progress = new AppElement('div', { className: 'progress none' }, {
-      append: new AppElement('div', { className: 'progress-line' }, {
-        append: new AppElement('div', { className: 'progress-bg' }),
-        cb(element) {
-          controller.on('progress', (event: string, progress: number, time: number) => {
-            (element as HTMLElement).parentElement?.classList.remove('none');
-            (element as HTMLElement).style.width = `${(progress * 100).toFixed(2)}%`;
-          })
-        },
-      })
+    const percent = new AppElement('span');
+    const rest = new AppElement('span');
+
+    const progress = new AppElement('p', { className: 'progress none' }, {
+      appends: [
+        new AppElement('span', { className: 'progress-text' }, {
+          appends: [
+            percent,
+            new AppElement('span', { textContent: 'осталось ' }),
+            rest
+          ]
+        }),
+        new AppElement('span', { className: 'progress-line' }, {
+          append: new AppElement('span', { className: 'progress-bg' }),
+          cb(element) {
+            controller.on('progress', (event: string, progress: number, time: number) => {
+              (element as HTMLElement).parentElement?.classList.remove('none');
+              (element as HTMLElement).style.width = `${(progress * 100).toFixed(2)}%`;
+              (percent as HTMLElement).textContent = `${(progress * 100).toFixed(2)}%`;
+              (rest as HTMLElement).textContent = `~ ${(time / 1000 / progress - time / 1000).toFixed(2)}с`;
+            })
+          },
+        })
+      ]
     })
 
     super('div', { className: 'controls' }, {
@@ -75,6 +89,7 @@ export class AppInitElement extends AppElement {
       (genEl as HTMLElement).textContent = `Поколение: X;`;
       (popEl as HTMLElement).textContent = `Популяция: ${alive} (${density.toFixed(2)}%);`;
       (timeEl as HTMLElement).textContent = `Время генерации: ${(time / 1000).toFixed(2)}c;`;
+      (progress as HTMLElement).classList.add('none');
     });
     this.controller.on('start', () => {
       (start as HTMLElement).classList.add('none');

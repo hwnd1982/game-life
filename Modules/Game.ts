@@ -60,6 +60,10 @@ export class Game extends EventEmiter {
     this.#height = value;
   }
 
+  get state() {
+    return this.#state;
+  }
+
   get change() {
     return this.#changedCells;
   }
@@ -67,14 +71,37 @@ export class Game extends EventEmiter {
   setPoint(y: number, x: number, state: number) {
     if (this.#state === 'play' || y >= this.#height || x >= this.#width) return;
 
+    const index = this.#currentGenAlive.findIndex(point => x === point[1] && y === point[0]);
+    const isAdd = index === -1 && state;
+    const isRemove = index !== -1 && !state;
+
     this.#scene[y][x] = state ? this.#gen + 1 : 0;
-    if (state) {
+    if (isAdd) {
       this.#currentGenAlive.push([y, x]);
-    } else {
-      const index = this.#currentGenAlive.findIndex(point => x === point[1] && y === point[0]);
-      this.#currentGenAlive.slice(index, 1);
     }
-    this.emit('change', y, x, state)
+
+    if (isRemove) {
+      this.#currentGenAlive.splice(index, 1);
+    }
+
+    if (isAdd || isRemove) {
+      this.emit('change', y, x, state);
+      this.emit(
+        'fill',
+        this.#currentGenAlive.length / (this.#width * this.#height) * 100,
+        this.#currentGenAlive.length,
+        0,
+        0
+      );
+    }
+  }
+
+  async progress(progress: number, start: number) {
+    return new Promise((resolve) => {
+      this.emit('progress', progress, Date.now() - start);
+
+      setTimeout(resolve);
+    });
   }
 
   async step() {
@@ -97,16 +124,16 @@ export class Game extends EventEmiter {
       await this.toBeAlive(y, x);
 
       if (i && this.#currentGenAlive.length > 7500 && !(i % 1500)) {
-        await new Promise((resolve) => {
-          this.emit('progress', i / this.#currentGenAlive.length, Date.now() - start);
-
-          setTimeout(resolve);
-        });
+        await this.progress(i / this.#currentGenAlive.length, start)
       }
     }
 
-    if (!this.#checkedCells.length || !this.#changedCells.length) {
+    if (!this.#checkedCells.length) {
       this.emit('stop');
+    }
+
+    if (!this.#changedCells.length) {
+      this.emit('pause');
     }
 
     this.emit('gen', this.#gen, this.#nextGenAlive.length, Date.now() - start);
@@ -117,15 +144,15 @@ export class Game extends EventEmiter {
   stop() {
     this.#state = 'stop';
 
-    for (let i = 0; i < this.#currentGenAlive.length; i++) {
-      const [y, x] = this.#currentGenAlive[i];
-      this.setPoint(y, x, 0);
-    }
-
-    for (let i = 0; i < this.#nextGenAlive.length; i++) {
-      const [y, x] = this.#nextGenAlive[i];
-
-      this.setPoint(y, x, 0);
+    while (this.#currentGenAlive.length || this.#nextGenAlive.length) {
+      if (this.#currentGenAlive.length) {
+        const [y, x] = this.#currentGenAlive[this.#currentGenAlive.length - 1];
+        this.setPoint(y, x, 0);
+      }
+      if (this.#nextGenAlive.length) {
+        const [y, x] = this.#nextGenAlive[this.#nextGenAlive.length - 1];
+        this.setPoint(y, x, 0);
+      }
     }
 
     this.#changedCells.length = 0;
@@ -171,6 +198,7 @@ export class Game extends EventEmiter {
         await this.toBeAlive(y, r);
         await this.toBeAlive(b, l);
         await this.toBeAlive(b, x);
+        await this.toBeAlive(b, r);
       }
 
       if (isAlive) {
@@ -207,7 +235,7 @@ export class Game extends EventEmiter {
 
     this.#isCalculating = true;
 
-    new Promise((resolve) => {
+    new Promise(async (resolve) => {
       const start = Date.now();
       const count = Math.round(this.#width * this.#height / 100 * density);
       const cells: string[] = [];
@@ -223,11 +251,20 @@ export class Game extends EventEmiter {
           this.#scene[y][x] = this.#gen + 1;
 
           cells.push(id);
+
+          if (cells.length && !(cells.length % 10000)) {
+            await this.progress(cells.length / count, start);
+          }
         }
       }
 
       this.#isCalculating = false;
-      this.emit('fill', this.#currentGenAlive.length / (this.#width * this.#height) * 100, this.#currentGenAlive.length, Date.now() - start, cells.length);
+      this.emit(
+        'fill',
+        this.#currentGenAlive.length / (this.#width * this.#height) * 100,
+        this.#currentGenAlive.length,
+        Date.now() - start, cells.length
+      );
 
       resolve(null);
     })
