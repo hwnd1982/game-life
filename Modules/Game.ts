@@ -10,7 +10,8 @@ export class Game extends EventEmiter {
   #currentGenAlive: [number, number][] = []
   #nextGenAlive: [number, number][] = []
   #checkedCells: string[] = []
-  #changedCells: [number, number, number][] = []
+  // #changedCells: [number, number, number][] = []
+  #changedCells: { [key: string]: number }
   #isCalculating: boolean = false
 
   constructor(width: number, height: number) {
@@ -111,7 +112,7 @@ export class Game extends EventEmiter {
 
     this.#gen++;
     this.#isCalculating = true;
-    this.#changedCells.length = 0;
+    this.#changedCells = {};
 
     if (this.#state === 'stop' || this.#state === 'pause') {
       this.#state = 'play';
@@ -132,7 +133,7 @@ export class Game extends EventEmiter {
       this.emit('stop');
     }
 
-    if (!this.#changedCells.length) {
+    if (!Object.keys(this.#changedCells).length) {
       this.emit('pause');
     }
 
@@ -155,7 +156,7 @@ export class Game extends EventEmiter {
       }
     }
 
-    this.#changedCells.length = 0;
+    this.#changedCells = {};
     this.#checkedCells.length = 0;
     this.#currentGenAlive.length = 0;
     this.#nextGenAlive.length = 0;
@@ -201,13 +202,15 @@ export class Game extends EventEmiter {
         await this.toBeAlive(b, r);
       }
 
+      console.log(this.#changedCells);
       if (isAlive) {
         this.#nextGenAlive.push([y, x]);
         this.#scene[y][x] = this.#gen + 1;
       }
 
       if (!state === isAlive) {
-        this.#changedCells.push([y, x, +isAlive]);
+        // this.#changedCells.push([y, x, +isAlive]);
+        this.#changedCells[`${y}/${x}`] = +isAlive;
         this.#scene[y][x] = isAlive ? this.#gen + 1 : 0;
         resolve([y, x, +isAlive]);
       }
