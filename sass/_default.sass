@@ -4,13 +4,13 @@
 body
   box-sizing: border-box
   margin: 0
-  font-family: "Open Sans", Helvetica, sans-serif
+  font-family: Helvetica, sans-serif
 
 .app
   padding: 20px
   min-height: 100vh
-  display: flex
-  align-items: flex-start
-  justify-content: center
+  display: grid
+  grid-template-columns: 1fr max-content
+  justify-items: center
   &>:not(:last-child)
     margin-right: 30px

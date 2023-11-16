@@ -14,7 +14,7 @@ export class Game extends EventEmiter {
   #changedCells: { [key: string]: number }
   #isCalculating: boolean = false
 
-  constructor(width: number, height: number) {
+  constructor(height: number, width: number) {
     super();
     this.#width = width;
     this.#height = height;
@@ -39,10 +39,12 @@ export class Game extends EventEmiter {
 
     if (value < this.#width) {
       this.#scene.forEach(row => row.length = value);
+      this.#newScene.forEach(row => row.length = value);
     }
 
     if (value > this.#width) {
       this.#scene.forEach(row => row.push(...(new Array(value - this.#width).fill(0))));
+      this.#newScene.forEach(row => row.push(...(new Array(value - this.#width).fill(0))));
     }
 
     this.#width = value;
@@ -53,10 +55,12 @@ export class Game extends EventEmiter {
 
     if (value < this.#height) {
       this.#scene.length = value;
+      this.#newScene.length = value;
     }
 
     if (value > this.#height) {
       this.#scene.push(...(new Array(value - this.#height).fill(0).map(() => new Array(this.#width).fill(0))));
+      this.#newScene.push(...(new Array(value - this.#height).fill(0).map(() => new Array(this.#width).fill(0))));
     }
 
     this.#height = value;
@@ -72,6 +76,7 @@ export class Game extends EventEmiter {
 
   setPoint(y: number, x: number, state: number) {
     if (this.#state === 'play' || y >= this.#height || x >= this.#width) return;
+
 
     const index = this.#currentGenAlive.findIndex(point => x === point[1] && y === point[0]);
     const isAdd = index === -1 && state;
@@ -387,7 +392,7 @@ export class Game extends EventEmiter {
     return this
   }
 
-  getGen() {
-    return { currentGen: this.#currentGenAlive, newGen: this.#nextGenAlive, state: this.#state }
-  }
+  // getGen() {
+  //   return { currentGen: this.#currentGenAlive, newGen: this.#nextGenAlive, state: this.#state }
+  // }
 }

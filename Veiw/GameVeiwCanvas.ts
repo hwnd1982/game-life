@@ -1,5 +1,4 @@
 import { AppElement } from "../Elements/AppElement";
-import { Scene } from "../Types/types";
 
 export class GameVeiwCanvas extends AppElement {
   ctx: CanvasRenderingContext2D | null = null
@@ -11,21 +10,18 @@ export class GameVeiwCanvas extends AppElement {
   draw: (event: MouseEvent) => void
   resize: (event?: WindowEventHandlers) => void
 
-  setSize: () => void
-  getState: (y: number, x: number) => number
-  getGen: () => void
+  setWidth: (value: number) => void
+  setHeight: (value: number) => void
 
   constructor(
     sceneHeight: number,
     sceneWidth: number,
     parent: AppElement,
     setPoint: (y: number, x: number, state: number) => void,
-    // getState: (y: number, x: number) => number,
-    getGen: () => [number, number][]
   ) {
 
     const sizeY = (window.innerHeight - 40) / sceneHeight;
-    const sizeX = (window.innerWidth - 250) / sceneWidth;
+    const sizeX = (window.innerWidth - 320) / sceneWidth;
 
     super('canvas', { className: 'canvas' }, { parent });
 
@@ -35,20 +31,8 @@ export class GameVeiwCanvas extends AppElement {
 
     if (this instanceof HTMLCanvasElement) {
       this.ctx = this.getContext('2d');
-      this.height = this.size * sceneHeight;
-      this.width = this.size * sceneWidth;
-
-      this.setSize = () => {
-        if (this instanceof HTMLCanvasElement) {
-          const sizeY = (window.innerHeight - 40) / sceneHeight;
-          const sizeX = (window.innerWidth - 250) / sceneWidth;
-
-          this.size = Math.min(sizeY, sizeX);
-
-          this.height = this.size * sceneHeight;
-          this.width = this.size * sceneWidth;
-        }
-      }
+      this.height = this.size * this.sceneHeight;
+      this.width = this.size * this.sceneWidth;
 
       this.draw = ({ type, target, buttons, button, clientY, clientX }) => {
         if ((!button && type === 'mouseup') || (type === 'mousemove' && !buttons)) return;
@@ -73,32 +57,28 @@ export class GameVeiwCanvas extends AppElement {
         this.ctx.fill();
       }
 
-      this.render = () => {
-        if (!this.ctx) return;
-
-        // const { currentGen, newGen, state } = getGen();
-
-
-        // currentGen.forEach(([x, y]) => this.change(y, x, state !== 'stop'));
-        // newGen.forEach(([x, y]) => this.change(y, x, state !== 'stop'));
-        // for (let y = 0; y < this.sceneHeight; y++) {
-        //   for (let x = 0; x < this.sceneWidth; x++) {
-        //     this.change(y, x, getState(y, x));
-        //   }
-        // }
-      }
-
       this.resize = () => {
         if (this instanceof HTMLCanvasElement) {
-          const sizeY = (window.innerHeight - 40) / sceneWidth;
-          const sizeX = (window.innerWidth - 250) / sceneWidth;
+          const sizeY = (window.innerHeight - 40) / this.sceneHeight;
+          const sizeX = (window.innerWidth - 320) / this.sceneWidth;
 
           this.size = Math.min(sizeY, sizeX);
 
-          this.height = this.size * sceneWidth;
-          this.width = this.size * sceneWidth;
+          this.height = this.size * this.sceneHeight;
+          this.width = this.size * this.sceneWidth;
         }
-        // this.render();
+      }
+
+      this.setWidth = (value: number) => {
+        this.sceneWidth = value;
+
+        this.resize();
+      }
+
+      this.setHeight = (value: number) => {
+        this.sceneHeight = value;
+
+        this.resize();
       }
 
       this.addEventListener('mouseup', this.draw.bind(this));

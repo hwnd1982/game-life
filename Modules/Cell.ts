@@ -11,7 +11,6 @@ export class Cell {
   #scene: Scene
   #side: { t: number, r: number, b: number, l: number }
 
-
   constructor(x: number, y: number, scene: Scene, cellsState: [
     CellState,
     CellState,

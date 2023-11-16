@@ -12,7 +12,7 @@ class App extends AppElement {
       parent: document.body
     });
 
-    new AppInitElement(this);
+    new AppInitElement(300, 300, this);
   }
 }
 

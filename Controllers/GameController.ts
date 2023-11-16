@@ -9,16 +9,15 @@ export class GameController extends EventEmiter {
   #intervalId: number | null = null
   #area: number
 
-  constructor(width: number, height: number, app: AppElement) {
+  constructor(height: number, width: number, app: AppElement) {
     super();
     this.#area = width * height;
-    this.#game = new Game(width, height);
+    this.#game = new Game(height, width);
     this.#veiw = new GameVeiwCanvas(
       this.#game.height,
       this.#game.width,
       app,
       this.setPoint.bind(this),
-      this.getGen.bind(this)
     );
     this.#game.on('change', this.change.bind(this));
     this.#game.on('pause', this.pause.bind(this));
@@ -69,9 +68,9 @@ export class GameController extends EventEmiter {
     return this.#game.getState(y, x);
   }
 
-  getGen(y: number, x: number) {
-    return this.#game.getGen();
-  }
+  // getGen(y: number, x: number) {
+  //   return this.#game.getGen();
+  // }
 
   change(event: string, y: number, x: number, state: number) {
     this.#veiw.change(y, x, state);
@@ -79,7 +78,6 @@ export class GameController extends EventEmiter {
 
   fill(value: number) {
     this.#game.fill(value);
-
     return this
   }
 
@@ -88,7 +86,7 @@ export class GameController extends EventEmiter {
 
     this.#game.width = value;
     this.#area = this.#game.width * this.#game.height;
-    this.#veiw.setSize();
+    this.#veiw.setWidth(value);
 
     return this;
   }
@@ -98,7 +96,7 @@ export class GameController extends EventEmiter {
 
     this.#game.height = value;
     this.#area = this.#game.width * this.#game.height;
-    this.#veiw.setSize();
+    this.#veiw.setHeight(value);
 
     return this;
   }
