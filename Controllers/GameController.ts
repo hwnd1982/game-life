@@ -13,7 +13,13 @@ export class GameController extends EventEmiter {
     super();
     this.#area = width * height;
     this.#game = new Game(width, height);
-    this.#veiw = new GameVeiwCanvas(this.#game.scene, app, this.setPoint.bind(this));
+    this.#veiw = new GameVeiwCanvas(
+      this.#game.height,
+      this.#game.width,
+      app,
+      this.setPoint.bind(this),
+      this.getGen.bind(this)
+    );
     this.#game.on('change', this.change.bind(this));
     this.#game.on('pause', this.pause.bind(this));
     this.#game.on('gen', this.gen.bind(this));
@@ -57,6 +63,14 @@ export class GameController extends EventEmiter {
 
   setPoint(y: number, x: number, state: number) {
     this.#game.setPoint(y, x, state);
+  }
+
+  getState(y: number, x: number) {
+    return this.#game.getState(y, x);
+  }
+
+  getGen(y: number, x: number) {
+    return this.#game.getGen();
   }
 
   change(event: string, y: number, x: number, state: number) {

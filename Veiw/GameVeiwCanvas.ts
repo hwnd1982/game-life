@@ -3,35 +3,50 @@ import { Scene } from "../Types/types";
 
 export class GameVeiwCanvas extends AppElement {
   ctx: CanvasRenderingContext2D | null = null
+  sceneHeight: number
+  sceneWidth: number
   size: number
   render: () => void
   change: (y: number, x: number, state: number) => void
   draw: (event: MouseEvent) => void
   resize: (event?: WindowEventHandlers) => void
-  setSize: () => void
 
-  constructor(scene: Scene, parent: AppElement, setPoint: (y: number, x: number, state: number) => void) {
-    const sizeY = (window.innerHeight - 40) / scene.length;
-    const sizeX = (window.innerWidth - 250) / scene[0].length;
+  setSize: () => void
+  getState: (y: number, x: number) => number
+  getGen: () => void
+
+  constructor(
+    sceneHeight: number,
+    sceneWidth: number,
+    parent: AppElement,
+    setPoint: (y: number, x: number, state: number) => void,
+    // getState: (y: number, x: number) => number,
+    getGen: () => [number, number][]
+  ) {
+
+    const sizeY = (window.innerHeight - 40) / sceneHeight;
+    const sizeX = (window.innerWidth - 250) / sceneWidth;
 
     super('canvas', { className: 'canvas' }, { parent });
 
     this.size = Math.min(sizeY, sizeX);
+    this.sceneHeight = sceneHeight;
+    this.sceneWidth = sceneWidth;
 
     if (this instanceof HTMLCanvasElement) {
       this.ctx = this.getContext('2d');
-      this.width = this.size * scene[0].length;
-      this.height = this.size * scene.length;
+      this.height = this.size * sceneHeight;
+      this.width = this.size * sceneWidth;
 
       this.setSize = () => {
         if (this instanceof HTMLCanvasElement) {
-          const sizeY = (window.innerHeight - 40) / scene.length;
-          const sizeX = (window.innerWidth - 250) / scene[0].length;
+          const sizeY = (window.innerHeight - 40) / sceneHeight;
+          const sizeX = (window.innerWidth - 250) / sceneWidth;
 
           this.size = Math.min(sizeY, sizeX);
 
-          this.height = this.size * scene.length;
-          this.width = this.size * scene[0].length;
+          this.height = this.size * sceneHeight;
+          this.width = this.size * sceneWidth;
         }
       }
 
@@ -61,25 +76,31 @@ export class GameVeiwCanvas extends AppElement {
       this.render = () => {
         if (!this.ctx) return;
 
-        for (let y = 0; y < scene.length; y++) {
-          for (let x = 0; x < scene[y].length; x++) {
-            this.change(y, x, +!!scene[y][x]);
-          }
-        }
+        // const { currentGen, newGen, state } = getGen();
+
+
+        // currentGen.forEach(([x, y]) => this.change(y, x, state !== 'stop'));
+        // newGen.forEach(([x, y]) => this.change(y, x, state !== 'stop'));
+        // for (let y = 0; y < this.sceneHeight; y++) {
+        //   for (let x = 0; x < this.sceneWidth; x++) {
+        //     this.change(y, x, getState(y, x));
+        //   }
+        // }
       }
 
       this.resize = () => {
         if (this instanceof HTMLCanvasElement) {
-          const sizeY = (window.innerHeight - 40) / scene.length;
-          const sizeX = (window.innerWidth - 250) / scene[0].length;
+          const sizeY = (window.innerHeight - 40) / sceneWidth;
+          const sizeX = (window.innerWidth - 250) / sceneWidth;
 
           this.size = Math.min(sizeY, sizeX);
 
-          this.width = this.size * scene[0].length;
-          this.height = this.size * scene.length;
+          this.height = this.size * sceneWidth;
+          this.width = this.size * sceneWidth;
         }
-        this.render();
+        // this.render();
       }
+
       this.addEventListener('mouseup', this.draw.bind(this));
       this.addEventListener('mousemove', this.draw.bind(this));
       this.addEventListener('mousedown', this.draw.bind(this));

@@ -5,7 +5,7 @@ export class AppInitElement extends AppElement {
   controller: GameController
 
   constructor(parent: AppElement) {
-    const controller = new GameController(100, 100, parent);
+    const controller = new GameController(500, 500, parent);
     const genEl = new AppElement('span', { className: 'text' });
     const popEl = new AppElement('span', { className: 'text' });
     const timeEl = new AppElement('span', { className: 'text' });
