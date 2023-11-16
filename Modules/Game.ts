@@ -391,8 +391,4 @@ export class Game extends EventEmiter {
 
     return this
   }
-
-  // getGen() {
-  //   return { currentGen: this.#currentGenAlive, newGen: this.#nextGenAlive, state: this.#state }
-  // }
 }
