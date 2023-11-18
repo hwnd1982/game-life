@@ -358,11 +358,11 @@ export class Game extends EventEmiter {
 
     let interval = performance.now();
     const start = performance.now();
+    const startCount = this.#currentGenAlive.length;
     const count = Math.round(this.#width * this.#height / 100 * density);
-    const cells: string[] = [];
+    const cells: string[] = this.#currentGenAlive.map(([y, x]) => `${y}/${x}`);
 
-
-    while (cells.length < count || cells.length < 5) {
+    while (cells.length < count + startCount || cells.length < 5) {
       const x = Math.round(Math.random() * (this.#width - 1));
       const y = Math.round(Math.random() * (this.#height - 1));
       const id = `${y}/${x}`
