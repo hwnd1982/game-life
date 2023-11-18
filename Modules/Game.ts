@@ -1,5 +1,5 @@
 import { EventEmiter } from "../Services/EventEmiter"
-import { Scene } from "../Types/types"
+import { Scene, Task } from "../Types/types"
 
 export class Game extends EventEmiter {
   #state: 'play' | 'pause' | 'stop' = 'stop'
@@ -12,6 +12,7 @@ export class Game extends EventEmiter {
   #nextGenAlive: [number, number][] = []
   #checkedCells: string[] = []
   #changedCells: { [key: string]: number }
+  #stepTask: [number, number, Task][] = []
   #isCalculating: boolean = false
 
   constructor(height: number, width: number) {
@@ -32,6 +33,14 @@ export class Game extends EventEmiter {
 
   get height() {
     return this.#height;
+  }
+
+  get state() {
+    return this.#state;
+  }
+
+  get change() {
+    return this.#changedCells;
   }
 
   set width(value: number) {
@@ -66,14 +75,6 @@ export class Game extends EventEmiter {
     this.#height = value;
   }
 
-  get state() {
-    return this.#state;
-  }
-
-  get change() {
-    return this.#changedCells;
-  }
-
   setPoint(y: number, x: number, state: number) {
     if (this.#state === 'play' || y >= this.#height || x >= this.#width) return;
 
@@ -98,7 +99,7 @@ export class Game extends EventEmiter {
         this.#currentGenAlive.length / (this.#width * this.#height) * 100,
         this.#currentGenAlive.length,
         0,
-        0
+        1
       );
     }
   }
@@ -127,11 +128,20 @@ export class Game extends EventEmiter {
       this.emit('play');
     }
 
-    while (this.#currentGenAlive.length) {
-      const [y, x] = this.#currentGenAlive[this.#currentGenAlive.length - 1];
+    while (this.#currentGenAlive.length || this.#stepTask.length) {
+      if (this.#stepTask.length) {
+        const [y, x, done] = this.#stepTask[this.#stepTask.length - 1];
 
-      this.#currentGenAlive.length -= 1;
-      this.toBeAlive(y, x);
+        this.#stepTask.length -= 1;
+        this.toBeAlive(y, x, done);
+      }
+
+      if (!this.#stepTask.length && this.#currentGenAlive.length) {
+        const [y, x] = this.#currentGenAlive[this.#currentGenAlive.length - 1];
+
+        this.#currentGenAlive.length -= 1;
+        this.toBeAlive(y, x);
+      }
 
       if (performance.now() - interval > 500) {
         interval = performance.now();
@@ -178,17 +188,20 @@ export class Game extends EventEmiter {
     this.#gen = 0;
   }
 
-  moveDiagonal(y: number, x: number, offsetY: number, offsetX: number, partial: number) {
+  moveDiagonal(y: number, x: number, offsetY: number, offsetX: number, part: number) {
+    const [dy, dx] = [
+      (y + offsetY + this.#height) % this.#height,
+      (x + offsetX + this.#width) % this.#width
+    ];
+
     if (!this.#checkedCells[`${y}/${x}`]) {
-      this.checkCell(y, x, partial + this.#scene[
-        (y + offsetY + this.#height) % this.#height
-      ][
-        (x + offsetX + this.#width) % this.#width
-      ]);
+      this.checkCell(y, x, part + this.#scene[dy][dx]);
     }
+
+    return this.#scene[dy][dx];
   }
 
-  moveSide(y: number, x: number, offsetY: number, offsetX: number, partial: number) {
+  moveSide(y: number, x: number, offsetY: number, offsetX: number, part: number) {
     const res: number[] = [];
 
     if (offsetY) {
@@ -208,7 +221,7 @@ export class Game extends EventEmiter {
     }
 
     if (!this.#checkedCells[`${y}/${x}`]) {
-      this.checkCell(y, x, partial + res[0] + res[1] + res[2]);
+      this.checkCell(y, x, part + res[0] + res[1] + res[2]);
     }
 
     return res;
@@ -242,7 +255,7 @@ export class Game extends EventEmiter {
     this.emit('change', y, x, +isAlive);
   }
 
-  toBeAlive(y: number, x: number) {
+  toBeAlive(y: number, x: number, done?: Task) {
     if (this.#checkedCells.includes(`${y}/${x}`)) return;
 
     this.#checkedCells.push(`${y}/${x}`);
@@ -262,7 +275,7 @@ export class Game extends EventEmiter {
       this.#scene[b][x] +
       this.#scene[b][r];
 
-    const topPartial = this.moveSide(t, x, -1, 0,
+    const top = done?.top || this.moveSide(t, x, -1, 0,
       this.#scene[t][l] +
       this.#scene[t][r] +
       this.#scene[y][l] +
@@ -270,7 +283,7 @@ export class Game extends EventEmiter {
       this.#scene[y][x]
     );
 
-    const rightPartial = this.moveSide(y, r, 0, 1,
+    const right = done?.right || this.moveSide(y, r, 0, 1,
       this.#scene[t][r] +
       this.#scene[t][x] +
       this.#scene[b][x] +
@@ -278,7 +291,7 @@ export class Game extends EventEmiter {
       this.#scene[y][x]
     );
 
-    const bottomPartial = this.moveSide(b, x, 1, 0,
+    const bottom = done?.bottom || this.moveSide(b, x, 1, 0,
       this.#scene[y][l] +
       this.#scene[y][r] +
       this.#scene[b][l] +
@@ -286,7 +299,7 @@ export class Game extends EventEmiter {
       this.#scene[y][x]
     );
 
-    const leftPartial = this.moveSide(y, l, 0, -1,
+    const left = done?.left || this.moveSide(y, l, 0, -1,
       this.#scene[t][l] +
       this.#scene[t][x] +
       this.#scene[b][l] +
@@ -294,41 +307,41 @@ export class Game extends EventEmiter {
       this.#scene[y][x]
     );
 
-    this.moveDiagonal(t, r, -1, 1,
-      topPartial[1] +
-      topPartial[2] +
-      rightPartial[0] +
-      rightPartial[1] +
+    const tr = this.moveDiagonal(t, r, -1, 1,
+      top[1] +
+      top[2] +
+      right[0] +
+      right[1] +
       this.#scene[t][x] +
       this.#scene[y][r] +
       this.#scene[y][x]
     );
 
-    this.moveDiagonal(b, r, 1, 1,
-      bottomPartial[1] +
-      bottomPartial[2] +
-      rightPartial[1] +
-      rightPartial[2] +
+    const br = this.moveDiagonal(b, r, 1, 1,
+      bottom[1] +
+      bottom[2] +
+      right[1] +
+      right[2] +
       this.#scene[b][x] +
       this.#scene[y][r] +
       this.#scene[y][x]
     );
 
-    this.moveDiagonal(b, l, 1, -1,
-      bottomPartial[0] +
-      bottomPartial[1] +
-      leftPartial[1] +
-      leftPartial[2] +
+    const bl = this.moveDiagonal(b, l, 1, -1,
+      bottom[0] +
+      bottom[1] +
+      left[1] +
+      left[2] +
       this.#scene[b][x] +
       this.#scene[y][l] +
       this.#scene[y][x]
     );
 
-    this.moveDiagonal(t, l, -1, -1,
-      topPartial[0] +
-      topPartial[1] +
-      leftPartial[0] +
-      leftPartial[1] +
+    const tl = this.moveDiagonal(t, l, -1, -1,
+      top[0] +
+      top[1] +
+      left[0] +
+      left[1] +
       this.#scene[t][x] +
       this.#scene[y][l] +
       this.#scene[y][x]
@@ -336,6 +349,234 @@ export class Game extends EventEmiter {
 
     if (!this.#checkedCells[`${y}/${x}`]) {
       this.checkCell(y, x, aliveNearby);
+    }
+
+    if (top[0]) {
+      const ty = (y - 2 + this.#height) % this.#height;
+      const tx = (x - 1 + this.#width) % this.#width;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].bottom = [left[1], this.#scene[y][l], this.#scene[y][x]];
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { bottom: [left[1], this.#scene[y][l], this.#scene[y][x]] }]);
+        }
+      }
+    }
+
+    if (top[1]) {
+      const ty = (y - 2 + this.#height) % this.#height;
+      const tx = x;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].bottom = [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]];
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { bottom: [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]] }]);
+        }
+      }
+    }
+
+    if (top[2]) {
+      const ty = (y - 2 + this.#height) % this.#height;
+      const tx = (x + 1 + this.#width) % this.#width;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].bottom = [this.#scene[y][x], this.#scene[y][r], right[1]];
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { bottom: [this.#scene[y][x], this.#scene[y][r], right[1]] }]);
+        }
+      }
+    }
+
+    if (right[0]) {
+      const ty = (y - 1 + this.#height) % this.#height;
+      const tx = (x + 2 + this.#width) % this.#width;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].left = [top[1], this.#scene[t][x], this.#scene[y][x]];
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { left: [top[1], this.#scene[t][x], this.#scene[y][x]] }]);
+        }
+      }
+    }
+
+    if (right[1]) {
+      const ty = y
+      const tx = (x + 2 + this.#width) % this.#width;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].left = [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]];
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { left: [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]] }]);
+        }
+      }
+    }
+
+    if (right[2]) {
+      const ty = (y + 1 + this.#height) % this.#height;
+      const tx = (x + 2 + this.#width) % this.#width;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].left = [this.#scene[t][x], this.#scene[b][x], bottom[1]];
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { left: [this.#scene[t][x], this.#scene[b][x], bottom[1]] }]);
+        }
+      }
+    }
+
+    if (bottom[0]) {
+      const ty = (y + 2 + this.#height) % this.#height;
+      const tx = (x - 1 + this.#width) % this.#width;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].top = [left[1], this.#scene[y][l], this.#scene[y][x]];
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { top: [left[1], this.#scene[y][l], this.#scene[y][x]] }]);
+        }
+      }
+    }
+
+    if (bottom[1]) {
+      const ty = (y + 2 + this.#height) % this.#height;
+      const tx = x;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].top = [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]];
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { top: [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]] }],);
+        }
+      }
+    }
+
+    if (bottom[2]) {
+      const ty = (y + 2 + this.#height) % this.#height;
+      const tx = (x + 1 + this.#width) % this.#width;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].top = [this.#scene[y][x], this.#scene[y][r], right[1]];
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { top: [this.#scene[y][x], this.#scene[y][r], right[1]] }]);
+        }
+      }
+    }
+
+    if (left[0]) {
+      const ty = (y - 1 + this.#height) % this.#height;
+      const tx = (x - 2 + this.#width) % this.#width;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].right = [top[1], this.#scene[t][x], this.#scene[y][x]]
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { right: [top[1], this.#scene[t][x], this.#scene[y][x]] }]);
+        }
+      }
+    }
+
+    if (left[1]) {
+      const ty = y
+      const tx = (x - 2 + this.#width) % this.#width;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].right = [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]]
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { right: [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]] }]);
+        }
+      }
+    }
+
+    if (left[2]) {
+      const ty = (y + 1 + this.#height) % this.#height;
+      const tx = (x - 2 + this.#width) % this.#width;
+      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+        if (task) {
+          task[2].right = [this.#scene[t][x], this.#scene[b][x], bottom[1]]
+        }
+
+        if (!task) {
+          this.#currentGenAlive.splice(index, 1);
+          this.#stepTask.unshift([ty, tx, { right: [this.#scene[t][x], this.#scene[b][x], bottom[1]] }]);
+        }
+      }
     }
   }
 
@@ -376,7 +617,7 @@ export class Game extends EventEmiter {
 
         if (performance.now() - interval > 500) {
           interval = performance.now();
-          await this.progress(cells.length / count, start);
+          await this.progress((cells.length - startCount) / count, start);
         }
       }
     }
