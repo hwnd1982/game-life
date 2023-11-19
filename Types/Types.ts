@@ -7,4 +7,3 @@ export type Task = {
   left?: [number, number, number]
 };
 export type MoveTo = 't' | 'tr' | 'r' | 'br' | 'b' | 'bl' | 'l' | 'tl';
-export type Nearest = [number, number, number, number, number, number, number, number];
