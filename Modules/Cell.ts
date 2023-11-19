@@ -30,25 +30,25 @@ export class Cell {
     this.#controller.addCell(this);
     this.check(t + tr + r + br + b + bl + l + tl);
 
-    !task.top && !this.#controller.neighbor(y, x, 't') && this.#controller.addTask(y, x, 't', { bottom: true });
-    !task.top && !task.right && !this.#controller.neighbor(y, x, 'tr') && this.#controller.addTask(y, x, 'tr', {
-      bottom: true,
-      left: true
+    !this.#controller.neighbor(y, x, 't') && this.#controller.addTask(y, x, 't', {});
+    !this.#controller.neighbor(y, x, 'tr') && this.#controller.addTask(y, x, 'tr', {
+      // bottom: true,
+      // left: true
     });
-    !task.right && !this.#controller.neighbor(y, x, 'r') && this.#controller.addTask(y, x, 't', { left: true });
-    !task.bottom && !task.right && !this.#controller.neighbor(y, x, 'br') && this.#controller.addTask(y, x, 'br', {
-      top: true,
-      left: true
+    !this.#controller.neighbor(y, x, 'r') && this.#controller.addTask(y, x, 't', {});
+    !this.#controller.neighbor(y, x, 'br') && this.#controller.addTask(y, x, 'br', {
+      // top: true,
+      // left: true
     });
-    !task.bottom && !this.#controller.neighbor(y, x, 'b') && this.#controller.addTask(y, x, 'b', { top: true });
-    !task.bottom && !task.left && !this.#controller.neighbor(y, x, 'bl') && this.#controller.addTask(y, x, 'bl', {
-      top: true,
-      right: true
+    !this.#controller.neighbor(y, x, 'b') && this.#controller.addTask(y, x, 'b', {});
+    !this.#controller.neighbor(y, x, 'bl') && this.#controller.addTask(y, x, 'bl', {
+      // top: true,
+      // right: true
     });
-    !task.left && !this.#controller.neighbor(y, x, 'l') && this.#controller.addTask(y, x, 'l', { right: true });
-    !task.top && !task.left && !this.#controller.neighbor(y, x, 'tl') && this.#controller.addTask(y, x, 'tl', {
-      bottom: true,
-      right: true
+    !this.#controller.neighbor(y, x, 'l') && this.#controller.addTask(y, x, 'l', {});
+    !this.#controller.neighbor(y, x, 'tl') && this.#controller.addTask(y, x, 'tl', {
+      // bottom: true,
+      // right: true
     });
 
   }

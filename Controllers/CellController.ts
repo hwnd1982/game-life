@@ -1,12 +1,12 @@
 import { Cell } from "../Modules/Cell.js";
-import { MoveTo } from "../Types/types.js";
+import { MoveTo, Nearest } from "../Types/types.js";
 
 export class CellController {
   #height: number
   #width: number
   #checked: string[] = []
   #cells: { [key: string]: Cell } = {}
-  #task: [number, number, { top?: boolean, right?: boolean, bottom?: boolean, left?: boolean }][]
+  #task: [number, number, { top?: boolean, right?: boolean, bottom?: boolean, left?: boolean }][] = []
 
   constructor(height: number, width: number) {
     this.#height = height;
@@ -57,6 +57,17 @@ export class CellController {
     return [(y - 1 + this.#height) % this.#height, (x - 1 + this.#width) % this.#width];
   }
 
+  cell(y: number, x: number, nearest: Nearest, state: number, task: {
+    top?: boolean,
+    right?: boolean,
+    bottom?: boolean,
+    left?: boolean
+  }) {
+    if (!this.#cells[`${y}/${x}`]) {
+      this.addCell(new Cell(this, y, x, nearest, state, task));
+    }
+  }
+
   addCell(cell: Cell) {
     this.#cells[cell.id] = cell;
   }
@@ -77,5 +88,19 @@ export class CellController {
     const [y, x] = this[move](cy, cx);
 
     return this.#cells[`${y}/${x}`] || null;
+  }
+
+  reset() {
+    this.#cells = {};
+    this.#checked = [];
+    this.#task = [];
+  }
+
+  set height(value: number) {
+    this.#height = value;
+  }
+
+  set width(value: number) {
+    this.#width = value;
   }
 }

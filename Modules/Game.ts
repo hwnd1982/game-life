@@ -1,5 +1,6 @@
+import { CellController } from "../Controllers/CellController"
 import { EventEmiter } from "../Services/EventEmiter"
-import { Scene, Task } from "../Types/types"
+import { Nearest, Scene, Task } from "../Types/types"
 
 export class Game extends EventEmiter {
   #state: 'play' | 'pause' | 'stop' = 'stop'
@@ -8,6 +9,7 @@ export class Game extends EventEmiter {
   #height: number
   #scene: Scene
   #newScene: Scene
+  #cells: CellController
   #currentGenAlive: [number, number][] = []
   #nextGenAlive: [number, number][] = []
   #checkedCells: string[] = []
@@ -19,6 +21,7 @@ export class Game extends EventEmiter {
     super();
     this.#width = width;
     this.#height = height;
+    this.#cells = new CellController(height, width);
     this.#scene = new Array(height).fill(0).map(() => new Array(width).fill(0));
     this.#newScene = new Array(height).fill(0).map(() => new Array(width).fill(0));
   }
@@ -57,6 +60,7 @@ export class Game extends EventEmiter {
     }
 
     this.#width = value;
+    this.#cells.width = value;
   }
 
   set height(value: number) {
@@ -73,6 +77,7 @@ export class Game extends EventEmiter {
     }
 
     this.#height = value;
+    this.#cells.height = value;
   }
 
   setPoint(y: number, x: number, state: number) {
@@ -129,12 +134,18 @@ export class Game extends EventEmiter {
     }
 
     while (this.#currentGenAlive.length || this.#stepTask.length) {
-      if (this.#stepTask.length) {
-        const [y, x, done] = this.#stepTask[this.#stepTask.length - 1];
+      if (this.#cells.task.length) {
+        const [y, x, done] = this.#cells.task[this.#cells.task.length - 1];
 
-        this.#stepTask.length -= 1;
+        this.#cells.task.length -= 1;
         this.toBeAlive(y, x, done);
       }
+      // if (this.#stepTask.length) {
+      //   const [y, x, done] = this.#stepTask[this.#stepTask.length - 1];
+
+      //   this.#stepTask.length -= 1;
+      //   this.toBeAlive(y, x, done);
+      // }
 
       if (!this.#stepTask.length && this.#currentGenAlive.length) {
         const [y, x] = this.#currentGenAlive[this.#currentGenAlive.length - 1];
@@ -255,329 +266,356 @@ export class Game extends EventEmiter {
     this.emit('change', y, x, +isAlive);
   }
 
-  toBeAlive(y: number, x: number, done?: Task) {
-    if (this.#checkedCells.includes(`${y}/${x}`)) return;
-
-    this.#checkedCells.push(`${y}/${x}`);
-
+  toBeAlive(y: number, x: number, done?: { top?: boolean, right?: boolean, bottom?: boolean, lift?: boolean }) {
     const t = (y - 1 + this.#height) % this.#height;
     const l = (x - 1 + this.#width) % this.#width;
     const r = (x + 1 + this.#width) % this.#width;
     const b = (y + 1 + this.#height) % this.#height;
 
-    const aliveNearby =
-      this.#scene[t][l] +
+    const nearest: Nearest = [
+      this.#scene[t][x],
+      this.#scene[t][r],
+      this.#scene[y][r],
+      this.#scene[b][r],
+      this.#scene[b][x],
+      this.#scene[b][l],
+      this.#scene[y][l],
+      this.#scene[t][l]
+    ];
+    this.#cells.cell(y, x, nearest, this.#scene[y][x], done || {})
+
+    this.checkCell(y, x,
       this.#scene[t][x] +
       this.#scene[t][r] +
-      this.#scene[y][l] +
       this.#scene[y][r] +
-      this.#scene[b][l] +
-      this.#scene[b][x] +
-      this.#scene[b][r];
-
-    const top = done?.top || this.moveSide(t, x, -1, 0,
-      this.#scene[t][l] +
-      this.#scene[t][r] +
-      this.#scene[y][l] +
-      this.#scene[y][r] +
-      this.#scene[y][x]
-    );
-
-    const right = done?.right || this.moveSide(y, r, 0, 1,
-      this.#scene[t][r] +
-      this.#scene[t][x] +
-      this.#scene[b][x] +
       this.#scene[b][r] +
-      this.#scene[y][x]
-    );
-
-    const bottom = done?.bottom || this.moveSide(b, x, 1, 0,
-      this.#scene[y][l] +
-      this.#scene[y][r] +
+      this.#scene[b][x] +
       this.#scene[b][l] +
-      this.#scene[b][r] +
-      this.#scene[y][x]
-    );
-
-    const left = done?.left || this.moveSide(y, l, 0, -1,
-      this.#scene[t][l] +
-      this.#scene[t][x] +
-      this.#scene[b][l] +
-      this.#scene[b][x] +
-      this.#scene[y][x]
-    );
-
-    const tr = this.moveDiagonal(t, r, -1, 1,
-      top[1] +
-      top[2] +
-      right[0] +
-      right[1] +
-      this.#scene[t][x] +
-      this.#scene[y][r] +
-      this.#scene[y][x]
-    );
-
-    const br = this.moveDiagonal(b, r, 1, 1,
-      bottom[1] +
-      bottom[2] +
-      right[1] +
-      right[2] +
-      this.#scene[b][x] +
-      this.#scene[y][r] +
-      this.#scene[y][x]
-    );
-
-    const bl = this.moveDiagonal(b, l, 1, -1,
-      bottom[0] +
-      bottom[1] +
-      left[1] +
-      left[2] +
-      this.#scene[b][x] +
       this.#scene[y][l] +
-      this.#scene[y][x]
+      this.#scene[t][l]
     );
+    // if (this.#checkedCells.includes(`${y}/${x}`)) return;
 
-    const tl = this.moveDiagonal(t, l, -1, -1,
-      top[0] +
-      top[1] +
-      left[0] +
-      left[1] +
-      this.#scene[t][x] +
-      this.#scene[y][l] +
-      this.#scene[y][x]
-    );
+    // this.#checkedCells.push(`${y}/${x}`);
 
-    if (!this.#checkedCells[`${y}/${x}`]) {
-      this.checkCell(y, x, aliveNearby);
-    }
+    // const t = (y - 1 + this.#height) % this.#height;
+    // const l = (x - 1 + this.#width) % this.#width;
+    // const r = (x + 1 + this.#width) % this.#width;
+    // const b = (y + 1 + this.#height) % this.#height;
 
-    if (top[0]) {
-      const ty = (y - 2 + this.#height) % this.#height;
-      const tx = (x - 1 + this.#width) % this.#width;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    // const aliveNearby =
+    //   this.#scene[t][l] +
+    //   this.#scene[t][x] +
+    //   this.#scene[t][r] +
+    //   this.#scene[y][l] +
+    //   this.#scene[y][r] +
+    //   this.#scene[b][l] +
+    //   this.#scene[b][x] +
+    //   this.#scene[b][r];
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    // const top = done?.top || this.moveSide(t, x, -1, 0,
+    //   this.#scene[t][l] +
+    //   this.#scene[t][r] +
+    //   this.#scene[y][l] +
+    //   this.#scene[y][r] +
+    //   this.#scene[y][x]
+    // );
 
-        if (task) {
-          task[2].bottom = [left[1], this.#scene[y][l], this.#scene[y][x]];
-        }
+    // const right = done?.right || this.moveSide(y, r, 0, 1,
+    //   this.#scene[t][r] +
+    //   this.#scene[t][x] +
+    //   this.#scene[b][x] +
+    //   this.#scene[b][r] +
+    //   this.#scene[y][x]
+    // );
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { bottom: [left[1], this.#scene[y][l], this.#scene[y][x]] }]);
-        }
-      }
-    }
+    // const bottom = done?.bottom || this.moveSide(b, x, 1, 0,
+    //   this.#scene[y][l] +
+    //   this.#scene[y][r] +
+    //   this.#scene[b][l] +
+    //   this.#scene[b][r] +
+    //   this.#scene[y][x]
+    // );
 
-    if (top[1]) {
-      const ty = (y - 2 + this.#height) % this.#height;
-      const tx = x;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    // const left = done?.left || this.moveSide(y, l, 0, -1,
+    //   this.#scene[t][l] +
+    //   this.#scene[t][x] +
+    //   this.#scene[b][l] +
+    //   this.#scene[b][x] +
+    //   this.#scene[y][x]
+    // );
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    // const tr = this.moveDiagonal(t, r, -1, 1,
+    //   top[1] +
+    //   top[2] +
+    //   right[0] +
+    //   right[1] +
+    //   this.#scene[t][x] +
+    //   this.#scene[y][r] +
+    //   this.#scene[y][x]
+    // );
 
-        if (task) {
-          task[2].bottom = [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]];
-        }
+    // const br = this.moveDiagonal(b, r, 1, 1,
+    //   bottom[1] +
+    //   bottom[2] +
+    //   right[1] +
+    //   right[2] +
+    //   this.#scene[b][x] +
+    //   this.#scene[y][r] +
+    //   this.#scene[y][x]
+    // );
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { bottom: [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]] }]);
-        }
-      }
-    }
+    // const bl = this.moveDiagonal(b, l, 1, -1,
+    //   bottom[0] +
+    //   bottom[1] +
+    //   left[1] +
+    //   left[2] +
+    //   this.#scene[b][x] +
+    //   this.#scene[y][l] +
+    //   this.#scene[y][x]
+    // );
 
-    if (top[2]) {
-      const ty = (y - 2 + this.#height) % this.#height;
-      const tx = (x + 1 + this.#width) % this.#width;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    // const tl = this.moveDiagonal(t, l, -1, -1,
+    //   top[0] +
+    //   top[1] +
+    //   left[0] +
+    //   left[1] +
+    //   this.#scene[t][x] +
+    //   this.#scene[y][l] +
+    //   this.#scene[y][x]
+    // );
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    // if (!this.#checkedCells[`${y}/${x}`]) {
+    //   this.checkCell(y, x, aliveNearby);
+    // }
 
-        if (task) {
-          task[2].bottom = [this.#scene[y][x], this.#scene[y][r], right[1]];
-        }
+    // if (top[0]) {
+    //   const ty = (y - 2 + this.#height) % this.#height;
+    //   const tx = (x - 1 + this.#width) % this.#width;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { bottom: [this.#scene[y][x], this.#scene[y][r], right[1]] }]);
-        }
-      }
-    }
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
 
-    if (right[0]) {
-      const ty = (y - 1 + this.#height) % this.#height;
-      const tx = (x + 2 + this.#width) % this.#width;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    //     if (task) {
+    //       task[2].bottom = [left[1], this.#scene[y][l], this.#scene[y][x]];
+    //     }
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { bottom: [left[1], this.#scene[y][l], this.#scene[y][x]] }]);
+    //     }
+    //   }
+    // }
 
-        if (task) {
-          task[2].left = [top[1], this.#scene[t][x], this.#scene[y][x]];
-        }
+    // if (top[1]) {
+    //   const ty = (y - 2 + this.#height) % this.#height;
+    //   const tx = x;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { left: [top[1], this.#scene[t][x], this.#scene[y][x]] }]);
-        }
-      }
-    }
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
 
-    if (right[1]) {
-      const ty = y
-      const tx = (x + 2 + this.#width) % this.#width;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    //     if (task) {
+    //       task[2].bottom = [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]];
+    //     }
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { bottom: [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]] }]);
+    //     }
+    //   }
+    // }
 
-        if (task) {
-          task[2].left = [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]];
-        }
+    // if (top[2]) {
+    //   const ty = (y - 2 + this.#height) % this.#height;
+    //   const tx = (x + 1 + this.#width) % this.#width;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { left: [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]] }]);
-        }
-      }
-    }
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
 
-    if (right[2]) {
-      const ty = (y + 1 + this.#height) % this.#height;
-      const tx = (x + 2 + this.#width) % this.#width;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    //     if (task) {
+    //       task[2].bottom = [this.#scene[y][x], this.#scene[y][r], right[1]];
+    //     }
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { bottom: [this.#scene[y][x], this.#scene[y][r], right[1]] }]);
+    //     }
+    //   }
+    // }
 
-        if (task) {
-          task[2].left = [this.#scene[t][x], this.#scene[b][x], bottom[1]];
-        }
+    // if (right[0]) {
+    //   const ty = (y - 1 + this.#height) % this.#height;
+    //   const tx = (x + 2 + this.#width) % this.#width;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { left: [this.#scene[t][x], this.#scene[b][x], bottom[1]] }]);
-        }
-      }
-    }
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
 
-    if (bottom[0]) {
-      const ty = (y + 2 + this.#height) % this.#height;
-      const tx = (x - 1 + this.#width) % this.#width;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    //     if (task) {
+    //       task[2].left = [top[1], this.#scene[t][x], this.#scene[y][x]];
+    //     }
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { left: [top[1], this.#scene[t][x], this.#scene[y][x]] }]);
+    //     }
+    //   }
+    // }
 
-        if (task) {
-          task[2].top = [left[1], this.#scene[y][l], this.#scene[y][x]];
-        }
+    // if (right[1]) {
+    //   const ty = y
+    //   const tx = (x + 2 + this.#width) % this.#width;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { top: [left[1], this.#scene[y][l], this.#scene[y][x]] }]);
-        }
-      }
-    }
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
 
-    if (bottom[1]) {
-      const ty = (y + 2 + this.#height) % this.#height;
-      const tx = x;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    //     if (task) {
+    //       task[2].left = [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]];
+    //     }
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { left: [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]] }]);
+    //     }
+    //   }
+    // }
 
-        if (task) {
-          task[2].top = [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]];
-        }
+    // if (right[2]) {
+    //   const ty = (y + 1 + this.#height) % this.#height;
+    //   const tx = (x + 2 + this.#width) % this.#width;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { top: [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]] }],);
-        }
-      }
-    }
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
 
-    if (bottom[2]) {
-      const ty = (y + 2 + this.#height) % this.#height;
-      const tx = (x + 1 + this.#width) % this.#width;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    //     if (task) {
+    //       task[2].left = [this.#scene[t][x], this.#scene[b][x], bottom[1]];
+    //     }
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { left: [this.#scene[t][x], this.#scene[b][x], bottom[1]] }]);
+    //     }
+    //   }
+    // }
 
-        if (task) {
-          task[2].top = [this.#scene[y][x], this.#scene[y][r], right[1]];
-        }
+    // if (bottom[0]) {
+    //   const ty = (y + 2 + this.#height) % this.#height;
+    //   const tx = (x - 1 + this.#width) % this.#width;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { top: [this.#scene[y][x], this.#scene[y][r], right[1]] }]);
-        }
-      }
-    }
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
 
-    if (left[0]) {
-      const ty = (y - 1 + this.#height) % this.#height;
-      const tx = (x - 2 + this.#width) % this.#width;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    //     if (task) {
+    //       task[2].top = [left[1], this.#scene[y][l], this.#scene[y][x]];
+    //     }
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { top: [left[1], this.#scene[y][l], this.#scene[y][x]] }]);
+    //     }
+    //   }
+    // }
 
-        if (task) {
-          task[2].right = [top[1], this.#scene[t][x], this.#scene[y][x]]
-        }
+    // if (bottom[1]) {
+    //   const ty = (y + 2 + this.#height) % this.#height;
+    //   const tx = x;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { right: [top[1], this.#scene[t][x], this.#scene[y][x]] }]);
-        }
-      }
-    }
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
 
-    if (left[1]) {
-      const ty = y
-      const tx = (x - 2 + this.#width) % this.#width;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    //     if (task) {
+    //       task[2].top = [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]];
+    //     }
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { top: [this.#scene[y][l], this.#scene[y][x], this.#scene[y][r]] }],);
+    //     }
+    //   }
+    // }
 
-        if (task) {
-          task[2].right = [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]]
-        }
+    // if (bottom[2]) {
+    //   const ty = (y + 2 + this.#height) % this.#height;
+    //   const tx = (x + 1 + this.#width) % this.#width;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { right: [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]] }]);
-        }
-      }
-    }
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
 
-    if (left[2]) {
-      const ty = (y + 1 + this.#height) % this.#height;
-      const tx = (x - 2 + this.#width) % this.#width;
-      const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+    //     if (task) {
+    //       task[2].top = [this.#scene[y][x], this.#scene[y][r], right[1]];
+    //     }
 
-      if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
-        const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { top: [this.#scene[y][x], this.#scene[y][r], right[1]] }]);
+    //     }
+    //   }
+    // }
 
-        if (task) {
-          task[2].right = [this.#scene[t][x], this.#scene[b][x], bottom[1]]
-        }
+    // if (left[0]) {
+    //   const ty = (y - 1 + this.#height) % this.#height;
+    //   const tx = (x - 2 + this.#width) % this.#width;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
 
-        if (!task) {
-          this.#currentGenAlive.splice(index, 1);
-          this.#stepTask.unshift([ty, tx, { right: [this.#scene[t][x], this.#scene[b][x], bottom[1]] }]);
-        }
-      }
-    }
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+    //     if (task) {
+    //       task[2].right = [top[1], this.#scene[t][x], this.#scene[y][x]]
+    //     }
+
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { right: [top[1], this.#scene[t][x], this.#scene[y][x]] }]);
+    //     }
+    //   }
+    // }
+
+    // if (left[1]) {
+    //   const ty = y
+    //   const tx = (x - 2 + this.#width) % this.#width;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+    //     if (task) {
+    //       task[2].right = [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]]
+    //     }
+
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { right: [this.#scene[t][x], this.#scene[y][x], this.#scene[b][x]] }]);
+    //     }
+    //   }
+    // }
+
+    // if (left[2]) {
+    //   const ty = (y + 1 + this.#height) % this.#height;
+    //   const tx = (x - 2 + this.#width) % this.#width;
+    //   const index = this.#currentGenAlive.findIndex(cell => cell[0] === ty && cell[1] === tx);
+
+    //   if (index !== -1 && !this.#checkedCells[`${ty}/${tx}`]) {
+    //     const task = this.#stepTask.find(cell => cell[0] === ty && cell[1] === tx);
+
+    //     if (task) {
+    //       task[2].right = [this.#scene[t][x], this.#scene[b][x], bottom[1]]
+    //     }
+
+    //     if (!task) {
+    //       this.#currentGenAlive.splice(index, 1);
+    //       this.#stepTask.unshift([ty, tx, { right: [this.#scene[t][x], this.#scene[b][x], bottom[1]] }]);
+    //     }
+    //   }
+    // }
   }
 
   pause() {
@@ -585,6 +623,7 @@ export class Game extends EventEmiter {
   }
 
   reset() {
+    this.#cells.reset();
     this.#currentGenAlive = [...this.#nextGenAlive];
     this.#scene = this.#newScene;
     this.#newScene = new Array(this.#height).fill(0).map(() => new Array(this.#width).fill(0));
