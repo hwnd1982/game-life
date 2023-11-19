@@ -376,7 +376,7 @@ export class Game extends EventEmiter {
 
         if (performance.now() - interval > 500) {
           interval = performance.now();
-          await this.progress(cells.length / count, start);
+          await this.progress((cells.length - startCount) / count, start);
         }
       }
     }
