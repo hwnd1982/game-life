@@ -34,6 +34,10 @@ export class GameController extends EventEmiter {
 
   gen(event: string, gen: number, alive: number, time: number) {
     this.emit(event, gen, alive, time);
+
+    if (event === 'gen' && this.#veiw.needRender) {
+      this.#veiw.render(this.#game.getAll());
+    }
   }
 
   stop() {

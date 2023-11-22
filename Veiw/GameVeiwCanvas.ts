@@ -5,7 +5,9 @@ export class GameVeiwCanvas extends AppElement {
   sceneHeight: number
   sceneWidth: number
   size: number
-  render: () => void
+  needRender: boolean
+
+  render: (alive: [number, number][]) => void
   change: (y: number, x: number, state: number) => void
   draw: (event: MouseEvent) => void
   resize: (event?: WindowEventHandlers) => void
@@ -25,6 +27,7 @@ export class GameVeiwCanvas extends AppElement {
 
     super('canvas', { className: 'canvas' }, { parent });
 
+    this.needRender = false;
     this.size = Math.min(sizeY, sizeX);
     this.sceneHeight = sceneHeight;
     this.sceneWidth = sceneWidth;
@@ -57,6 +60,12 @@ export class GameVeiwCanvas extends AppElement {
         this.ctx.fill();
       }
 
+      this.render = (alive: [number, number][]) => {
+        alive.forEach(([y, x]) => this.change(y, x, 1));
+
+        this.needRender = false;
+      }
+
       this.resize = () => {
         if (this instanceof HTMLCanvasElement) {
           const sizeY = (window.innerHeight - 40) / this.sceneHeight;
@@ -67,6 +76,8 @@ export class GameVeiwCanvas extends AppElement {
           this.height = this.size * this.sceneHeight;
           this.width = this.size * this.sceneWidth;
         }
+
+        this.needRender = true;
       }
 
       this.setWidth = (value: number) => {

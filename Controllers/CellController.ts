@@ -54,6 +54,10 @@ export class CellController extends Scene {
     return this.#current.length - this.#taskCount;
   }
 
+  getAll() {
+    return [...this.#current, ...this.#next];
+  }
+
   setCurrent(y: number, x: number, state: number) {
     const index = this.#current.findIndex(point => x === point[1] && y === point[0]);
     const isAdd = index === -1 && state;
