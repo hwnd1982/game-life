@@ -205,4 +205,32 @@ export class CellController extends Scene {
     this.#changed = 0;
     this.#taskCount = 0;
   }
+
+  get height() {
+    return super.height;
+  }
+
+  set height(value: number) {
+    const isCut = value < this.height;
+
+    super.height = value;
+
+    if (isCut) {
+      this.#current = this.#current.filter(([y]) => y < this.height);
+    }
+  }
+
+  get width() {
+    return super.width;
+  }
+
+  set width(value: number) {
+    const isCut = value < this.width;
+
+    super.width = value;
+
+    if (isCut) {
+      this.#current = this.#current.filter(([, x]) => x < this.width);
+    }
+  }
 }

@@ -72,6 +72,8 @@ export class GameController extends EventEmiter {
     const count = Math.round(this.#game.width * this.#game.height / 100 * density);
     const cells: string[] = [];
 
+    if (startCount >= this.#game.width * this.#game.height) return;
+
     this.#game.state = 'calc';
     while (cells.length < count) {
       const x = Math.round(Math.random() * (this.#game.width - 1));

@@ -83,4 +83,24 @@ export class Game extends CellController {
     this.state = 'stop';
     await super.stop();
   }
+
+  get height() {
+    return super.height;
+  }
+
+  set height(value: number) {
+    super.height = value;
+
+    this.emit('gen', this.gen, this.alive, 0, 0);
+  }
+
+  get width() {
+    return super.width;
+  }
+
+  set width(value: number) {
+    super.width = value;
+
+    this.emit('gen', this.gen, this.alive, 0, 0);
+  }
 }
