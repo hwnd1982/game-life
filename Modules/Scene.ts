@@ -99,7 +99,7 @@ export class Scene extends EventEmiter {
   }
 
   set height(value: number) {
-    if (value === this.#width) return;
+    if (value === this.#height) return;
 
     if (value < this.#height) {
       this.#current.length = value;
