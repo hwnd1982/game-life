@@ -13,4 +13,5 @@ class App extends AppElement {
   }
 }
 
+// new App(50, 50)
 new App(325, 525);

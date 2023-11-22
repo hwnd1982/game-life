@@ -3,22 +3,16 @@ import { Game } from "../Modules/Game";
 import { EventEmiter } from "../Services/EventEmiter";
 import { GameVeiwCanvas } from "../Veiw/GameVeiwCanvas";
 
+
 export class GameController extends EventEmiter {
   #game: Game
   #veiw: GameVeiwCanvas
   #intervalId: number | null = null
-  #area: number
 
   constructor(height: number, width: number, app: AppElement) {
     super();
-    this.#area = width * height;
     this.#game = new Game(height, width);
-    this.#veiw = new GameVeiwCanvas(
-      this.#game.height,
-      this.#game.width,
-      app,
-      this.setPoint.bind(this),
-    );
+    this.#veiw = new GameVeiwCanvas(height, width, app, this.#game.setPoint.bind(this.#game));
     this.#game.on('change', this.change.bind(this));
     this.#game.on('pause', this.pause.bind(this));
     this.#game.on('gen', this.gen.bind(this));
@@ -28,7 +22,7 @@ export class GameController extends EventEmiter {
   }
 
   get area() {
-    return this.#area;
+    return this.#game.height * this.#game.width;
   }
 
   start() {
@@ -55,47 +49,72 @@ export class GameController extends EventEmiter {
     if (this.#intervalId) {
       this.emit('pause');
       clearInterval(this.#intervalId);
-      this.#game.pause();
+      this.#game.state = 'pause';
       this.#intervalId = null;
     }
   };
-
-  setPoint(y: number, x: number, state: number) {
-    this.#game.setPoint(y, x, state);
-  }
 
   getState(y: number, x: number) {
     return this.#game.getState(y, x);
   }
 
-  // getGen(y: number, x: number) {
-  //   return this.#game.getGen();
-  // }
-
   change(event: string, y: number, x: number, state: number) {
     this.#veiw.change(y, x, state);
   }
 
-  fill(value: number) {
-    this.#game.fill(value);
+  async fill(density: number) {
+    if (this.#game.state === 'calc' || this.#game.state === 'play') return;
+
+    let processing = performance.now();
+    const start = performance.now();
+    const state = this.#game.state;
+    const startCount = this.#game.alive;
+    const count = Math.round(this.#game.width * this.#game.height / 100 * density);
+    const cells: string[] = [];
+
+    this.#game.state = 'calc';
+    while (cells.length < count) {
+      const x = Math.round(Math.random() * (this.#game.width - 1));
+      const y = Math.round(Math.random() * (this.#game.height - 1));
+      const id = `${y}/${x}`;
+      const alive = this.#game.alive;
+
+      this.#game.setCurrent(y, x, 1);
+
+      if (this.#game.alive > alive) {
+        this.emit('change', y, x, 1);
+
+        cells.push(id);
+      }
+
+      if (performance.now() - processing > 500) {
+        await this.#game.progress((this.#game.alive - startCount) / count, processing - start);
+        processing = performance.now();
+      }
+
+    }
+
+    this.#game.state = state;
+
+    this.emit(
+      'fill',
+      this.#game.alive / (this.#game.width * this.#game.height) * 100,
+      this.#game.alive,
+      performance.now() - start, cells.length
+    );
+
     return this
   }
 
   width(value: number) {
-    value = value < 3 ? 3 : value;
-
     this.#game.width = value;
-    this.#area = this.#game.width * this.#game.height;
     this.#veiw.setWidth(value);
 
     return this;
   }
 
   height(value: number) {
-    value = value < 3 ? 3 : value;
-
     this.#game.height = value;
-    this.#area = this.#game.width * this.#game.height;
     this.#veiw.setHeight(value);
 
     return this;

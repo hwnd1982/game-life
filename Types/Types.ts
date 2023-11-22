@@ -1,2 +1,1 @@
-export type Scene = number[][];
-export type CellState = number | undefined;
+export type GameState = 'play' | 'pause' | 'stop' | 'calc';
