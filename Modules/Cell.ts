@@ -17,8 +17,8 @@ export class Cell {
     }
 
     if (state !== this.state) {
-      controller.change;
-      controller.emit('change', y, x, this.state);
+      this.#controller.change;
+      this.#controller.emit('change', y, x, this.state);
     }
   }
 }

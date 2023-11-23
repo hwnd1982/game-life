@@ -12,7 +12,7 @@ export class RangeElement extends AppElement {
             lebel
           ]
         }),
-        new AppElement('input', { className: 'range-input', type: 'range', min: '50', max: '1500', step: '25', value: `${size}` }, {
+        new AppElement('input', { className: 'range-input', type: 'range', min: '50', max: '2500', step: '25', value: `${size}` }, {
           cb(element) {
             (element as HTMLElement).addEventListener('change', () => {
               const value = (element as HTMLFormElement).value;
